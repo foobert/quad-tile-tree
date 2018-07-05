@@ -1,4 +1,4 @@
-function toTile(lat, lon, zoom) {
+export function toTile(lat, lon, zoom) {
   const latRad = lat * Math.PI / 180;
   const n = Math.pow(2, zoom);
   const xtile = parseInt((lon + 180.0) / 360.0 * n);
@@ -10,7 +10,7 @@ function toTile(lat, lon, zoom) {
   return { x: xtile, y: ytile };
 }
 
-function toQuadKey(tileX, tileY, zoom) {
+export function toQuadKey(tileX, tileY, zoom) {
   let quadKey = [];
   for (let i = zoom; i > 0; i--) {
     let digit = 0;
@@ -25,8 +25,3 @@ function toQuadKey(tileX, tileY, zoom) {
   }
   return quadKey;
 }
-
-module.exports = {
-  toTile,
-  toQuadKey
-};

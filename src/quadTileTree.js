@@ -1,8 +1,11 @@
-const debug = require("debug")("quadtree");
+//import createDebug from "debug";
+import { toTile, toQuadKey } from "./math";
 
-const { toTile, toQuadKey } = require("./math");
+//const debug = createDebug("quad-tile-tree");
 
-class QuadTileTree {
+const debug = () => {};
+
+export default class QuadTileTree {
   constructor(maxZoom = 16) {
     this.root = [];
     this.zoom = maxZoom;
@@ -67,5 +70,3 @@ class QuadTileTree {
     }
   }
 }
-
-module.exports = QuadTileTree;
