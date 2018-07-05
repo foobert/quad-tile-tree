@@ -1,7 +1,7 @@
 /* eslint-env mocha */
 
-const { expect } = require("chai");
-const QuadTileTree = require("../lib/quadTileTree");
+import { expect } from "chai";
+import QuadTileTree from "../src/quadTileTree";
 
 describe("QuadTileTree", () => {
   const foo = { id: "foo" };

@@ -1,8 +1,8 @@
 /* eslint-env mocha */
 
-const { expect } = require("chai");
+import { expect } from "chai";
 
-const { toTile, toQuadKey } = require("../lib/math");
+import { toTile, toQuadKey } from "../src/math";
 
 describe("toTile", () => {
   it("should translate coordinates to a tile", () => {
