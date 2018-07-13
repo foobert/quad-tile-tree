@@ -16,8 +16,9 @@ tileTree.add(c, c);
 //attribution: "foo",
 //maxZoom: 18
 //}).addTo(mymap);
-//
-const image = document.getElementById("image");
+
+const imageBig = document.getElementById("image");
+const imageSmall = document.getElementById("image_small");
 
 const CanvasLayer = L.GridLayer.extend({
   createTile: function(coord) {
@@ -38,28 +39,59 @@ const CanvasLayer = L.GridLayer.extend({
 
     const ctx = tile.getContext("2d");
 
-    ctx.strokeStyle = "red";
-    ctx.strokeRect(0, 0, size.x, size.y);
+    if (true) {
+      ctx.strokeStyle = "red";
+      ctx.strokeRect(0, 0, size.x, size.y);
 
-    ctx.fillStyle = "black";
-    ctx.fillText(`x: ${coord.x} y: ${coord.y} z: ${coord.z}`, 10, 20);
-    ctx.fillText(`size: ${size.x} x ${size.y}`, 10, 35);
-    ctx.fillText(`lat: ${coordinates.lat} lon: ${coordinates.lon}`, 10, 50);
-    ctx.fillText(`quad: ${quadKey}`, 10, 65);
+      ctx.fillStyle = "black";
+      ctx.fillText(`x: ${coord.x} y: ${coord.y} z: ${coord.z}`, 10, 20);
+      ctx.fillText(`size: ${size.x} x ${size.y}`, 10, 35);
+      ctx.fillText(`lat: ${coordinates.lat} lon: ${coordinates.lon}`, 10, 50);
+      ctx.fillText(`quad: ${quadKey}`, 10, 65);
+    }
 
     for (const gc of gcs) {
-      const dy =
-        (coordinates.lat - gc.lat) /
-        Math.abs(coordinates.lat - coordinatesLowerRight.lat) *
-        size.y;
-      const dx =
-        Math.sign(coordinates.lon) *
-        (coordinates.lon - gc.lon) /
-        Math.abs(coordinates.lon - coordinatesLowerRight.lon) *
-        size.x;
-      ctx.fillStyle = "blue";
-      ctx.fillRect(dx - 5, dy - 5, 10, 10);
-      ctx.drawImage(image, dx - image.width / 2, dy - image.height / 2);
+      const position = {
+        x:
+          Math.sign(coordinates.lon) *
+          (coordinates.lon - gc.lon) /
+          Math.abs(coordinates.lon - coordinatesLowerRight.lon) *
+          size.x,
+        y:
+          (coordinates.lat - gc.lat) /
+          Math.abs(coordinates.lat - coordinatesLowerRight.lat) *
+          size.y
+      };
+
+      //ctx.fillStyle = "blue";
+      //ctx.fillRect(dx - 5, dy - 5, 10, 10);
+
+      if (
+        position.x < 0 ||
+        position.x > size.x ||
+        position.y < 0 ||
+        position.y > size.y
+      ) {
+        continue;
+      }
+
+      const image = coord.z < 13 ? imageSmall : imageBig;
+      const center = {
+        x:
+          Math.max(
+            image.width / 2,
+            Math.min(size.x - image.width / 2, position.x)
+          ) -
+          image.width / 2,
+        y:
+          Math.max(
+            image.height / 2,
+            Math.min(size.y - image.height / 2, position.y)
+          ) -
+          image.height / 2
+      };
+
+      ctx.drawImage(image, center.x, center.y);
     }
 
     return tile;
