@@ -1,17 +1,5 @@
 const mymap = L.map("mapid").setView([51.505, -0.09], 13);
 
-const tileTree = new QuadTileTree();
-
-for (let i = 0; i < 10000; i++) {
-  const c = {
-    lat: 51.524 + Math.random() - 0.5,
-    lon: -0.1 + -0.5 + Math.random()
-  };
-  tileTree.add(c, { id: i, lat: c.lat, lon: c.lon });
-}
-const c = { id: 0, lat: 51.524, lon: -0.1 };
-tileTree.add(c, c);
-
 //L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 //attribution: "foo",
 //maxZoom: 18
@@ -21,6 +9,7 @@ const imageBig = document.getElementById("image");
 const imageSmall = document.getElementById("image_small");
 
 const CanvasLayer = L.GridLayer.extend({
+  tileTree: new QuadTileTree(),
   createTile: function(coord) {
     const size = this.getTileSize();
 
@@ -34,7 +23,7 @@ const CanvasLayer = L.GridLayer.extend({
       y: coord.y + 1,
       z: coord.z
     });
-    const gcs = tileTree.get({ x: coord.x, y: coord.y, zoom: coord.z });
+    const gcs = this.tileTree.get({ x: coord.x, y: coord.y, zoom: coord.z });
     const quadKey = toQuadKey(coord.x, coord.y, coord.z).join("");
 
     const ctx = tile.getContext("2d");
@@ -95,10 +84,46 @@ const CanvasLayer = L.GridLayer.extend({
     }
 
     return tile;
+  },
+  popup: L.popup(),
+  onClick: function(e) {
+    const { lat, lng: lon } = e.latlng;
+    const tile = toTile(lat, lon, mymap.getZoom());
+    const gcs = this.tileTree.get({
+      x: tile.x,
+      y: tile.y,
+      zoom: mymap.getZoom()
+    });
+    const filtered = gcs
+      .map(gc => ({
+        dist: Math.abs(lat - gc.lat) + Math.abs(lon - gc.lon),
+        gc
+      }))
+      .filter(x => x.dist < 0.005)
+      .sort((a, b) => a.dist - b.dist)
+      .map(({ gc }) => gc);
+    if (filtered.length > 0) {
+      const closest = filtered[0];
+      this.popup
+        .setLatLng({ lat: closest.lat, lng: closest.lon })
+        .setContent(closest.id.toString())
+        .openOn(mymap);
+    }
   }
 });
 
-mymap.addLayer(new CanvasLayer());
+const layer = new CanvasLayer();
+
+for (let i = 0; i < 10000; i++) {
+  const c = {
+    lat: 51.524 + Math.random() - 0.5,
+    lon: -0.1 + -0.5 + Math.random()
+  };
+  layer.tileTree.add(c, { id: i, lat: c.lat, lon: c.lon });
+}
+mymap.addLayer(layer);
+
+mymap.on("click", e => layer.onClick(e));
 
 const canvas = document.getElementById("test");
 const ctx = canvas.getContext("2d");
