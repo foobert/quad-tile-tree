@@ -30,8 +30,13 @@ const colors = {
   fallback: "#23c2db"
 };
 
+const tileTree = new QuadTileTree();
+
+const filters = {
+  types: ["traditional", "multi"]
+};
+
 const CanvasLayer = L.GridLayer.extend({
-  tileTree: new QuadTileTree(),
   createTile: function(coord) {
     const size = this.getTileSize();
 
@@ -45,7 +50,7 @@ const CanvasLayer = L.GridLayer.extend({
       y: coord.y + 1,
       z: coord.z
     });
-    const gcs = this.tileTree.get({ x: coord.x, y: coord.y, zoom: coord.z });
+    const gcs = tileTree.get({ x: coord.x, y: coord.y, zoom: coord.z });
     const quadKey = toQuadKey(coord.x, coord.y, coord.z).join("");
 
     const ctx = tile.getContext("2d");
@@ -63,6 +68,9 @@ const CanvasLayer = L.GridLayer.extend({
     }
 
     for (const gc of gcs) {
+      if (filters.types.indexOf(gc.parsed.type) < 0) {
+        continue;
+      }
       const position = {
         x:
           Math.sign(coordinates.lon) *
@@ -128,7 +136,7 @@ const CanvasLayer = L.GridLayer.extend({
   onClick: function(e) {
     const { lat, lng: lon } = e.latlng;
     const tile = toTile(lat, lon, mymap.getZoom());
-    const gcs = this.tileTree.get({
+    const gcs = tileTree.get({
       x: tile.x,
       y: tile.y,
       zoom: mymap.getZoom()
@@ -152,10 +160,6 @@ const CanvasLayer = L.GridLayer.extend({
   }
 });
 
-const layer = new CanvasLayer();
-
-mymap.on("click", e => layer.onClick(e));
-
 /*
 fetch("https://gc.funkenburg.net/api/graphql", {
   method: "POST",
@@ -166,18 +170,28 @@ fetch("https://gc.funkenburg.net/api/graphql", {
   body: JSON.stringify({ query: "{ geocaches { id } }" })
 })
 */
+
+const layer = new CanvasLayer();
+mymap.on("click", e => layer.onClick(e));
+mymap.addLayer(layer);
+
 fetch("graphql.json")
   .then(r => r.json())
   .then(json => {
     json.data.geocaches.forEach(gc => {
-      //console.log("insert ", gc);
       gc.lat = gc.parsed.lat;
       gc.lon = gc.parsed.lon;
-      layer.tileTree.add({ lat: gc.parsed.lat, lon: gc.parsed.lon }, gc);
+      tileTree.add({ lat: gc.parsed.lat, lon: gc.parsed.lon }, gc);
     });
-    console.log("adding layer");
-    mymap.addLayer(layer);
+  })
+  .then(() => {
+    layer.redraw();
   });
+
+setTimeout(() => {
+  filters.types = ["traditional"];
+  layer.redraw();
+}, 5000);
 
 function toCoordinates(tile) {
   const n = Math.pow(2, tile.z);
