@@ -1,12 +1,34 @@
-const mymap = L.map("mapid").setView([51.505, -0.09], 13);
+const mymap = L.map("mapid").setView([51.3, 12.29], 13);
 
-//L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-//attribution: "foo",
-//maxZoom: 18
-//}).addTo(mymap);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "foo",
+  maxZoom: 18
+}).addTo(mymap);
 
-const imageBig = document.getElementById("image");
-const imageSmall = document.getElementById("image_small");
+const images = {
+  fallback: document.getElementById("fallback")
+};
+
+for (let x of [
+  "traditional",
+  "multi",
+  "wherigo",
+  "event",
+  "mystery",
+  "earth",
+  "virtual",
+  "letterbox",
+  "cito",
+  "webcam"
+]) {
+  images[x] = document.getElementById(x);
+}
+
+const colors = {
+  traditional: "#23db35",
+  multi: "#db8b23",
+  fallback: "#23c2db"
+};
 
 const CanvasLayer = L.GridLayer.extend({
   tileTree: new QuadTileTree(),
@@ -28,7 +50,7 @@ const CanvasLayer = L.GridLayer.extend({
 
     const ctx = tile.getContext("2d");
 
-    if (true) {
+    if (false) {
       ctx.strokeStyle = "red";
       ctx.strokeRect(0, 0, size.x, size.y);
 
@@ -37,13 +59,14 @@ const CanvasLayer = L.GridLayer.extend({
       ctx.fillText(`size: ${size.x} x ${size.y}`, 10, 35);
       ctx.fillText(`lat: ${coordinates.lat} lon: ${coordinates.lon}`, 10, 50);
       ctx.fillText(`quad: ${quadKey}`, 10, 65);
+      ctx.fillText(`res: ${gcs.length}`, 10, 80);
     }
 
     for (const gc of gcs) {
       const position = {
         x:
           Math.sign(coordinates.lon) *
-          (coordinates.lon - gc.lon) /
+          (gc.lon - coordinates.lon) /
           Math.abs(coordinates.lon - coordinatesLowerRight.lon) *
           size.x,
         y:
@@ -51,6 +74,11 @@ const CanvasLayer = L.GridLayer.extend({
           Math.abs(coordinates.lat - coordinatesLowerRight.lat) *
           size.y
       };
+
+      if (!gc.parsed) {
+        console.log(gc);
+        continue;
+      }
 
       //ctx.fillStyle = "blue";
       //ctx.fillRect(dx - 5, dy - 5, 10, 10);
@@ -64,23 +92,34 @@ const CanvasLayer = L.GridLayer.extend({
         continue;
       }
 
-      const image = coord.z < 13 ? imageSmall : imageBig;
-      const center = {
-        x:
-          Math.max(
-            image.width / 2,
-            Math.min(size.x - image.width / 2, position.x)
-          ) -
-          image.width / 2,
-        y:
-          Math.max(
-            image.height / 2,
-            Math.min(size.y - image.height / 2, position.y)
-          ) -
-          image.height / 2
-      };
+      if (coord.z < 13) {
+        // skip the full icon, just render a circle
+        ctx.beginPath();
+        ctx.arc(position.x, position.y, 8, 0, 2 * Math.PI);
+        ctx.strokeStyle = "white";
+        ctx.fillStyle = colors[gc.parsed.type] || colors.fallback;
+        ctx.lineWidth = 3;
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        const image = images[gc.parsed.type] || images.fallback;
 
-      ctx.drawImage(image, center.x, center.y);
+        const center = {
+          x:
+            Math.max(
+              image.width / 2,
+              Math.min(size.x - image.width / 2, position.x)
+            ) -
+            image.width / 2,
+          y:
+            Math.max(
+              image.height / 2,
+              Math.min(size.y - image.height / 2, position.y)
+            ) -
+            image.height / 2
+        };
+        ctx.drawImage(image, center.x, center.y);
+      }
     }
 
     return tile;
@@ -104,9 +143,10 @@ const CanvasLayer = L.GridLayer.extend({
       .map(({ gc }) => gc);
     if (filtered.length > 0) {
       const closest = filtered[0];
+      const gc = closest;
       this.popup
         .setLatLng({ lat: closest.lat, lng: closest.lon })
-        .setContent(closest.id.toString())
+        .setContent(`${gc.id} ${gc.parsed.name}`)
         .openOn(mymap);
     }
   }
@@ -114,20 +154,30 @@ const CanvasLayer = L.GridLayer.extend({
 
 const layer = new CanvasLayer();
 
-for (let i = 0; i < 10000; i++) {
-  const c = {
-    lat: 51.524 + Math.random() - 0.5,
-    lon: -0.1 + -0.5 + Math.random()
-  };
-  layer.tileTree.add(c, { id: i, lat: c.lat, lon: c.lon });
-}
-mymap.addLayer(layer);
-
 mymap.on("click", e => layer.onClick(e));
 
-const canvas = document.getElementById("test");
-const ctx = canvas.getContext("2d");
-window.ctx = ctx;
+/*
+fetch("https://gc.funkenburg.net/api/graphql", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  },
+  body: JSON.stringify({ query: "{ geocaches { id } }" })
+})
+*/
+fetch("graphql.json")
+  .then(r => r.json())
+  .then(json => {
+    json.data.geocaches.forEach(gc => {
+      //console.log("insert ", gc);
+      gc.lat = gc.parsed.lat;
+      gc.lon = gc.parsed.lon;
+      layer.tileTree.add({ lat: gc.parsed.lat, lon: gc.parsed.lon }, gc);
+    });
+    console.log("adding layer");
+    mymap.addLayer(layer);
+  });
 
 function toCoordinates(tile) {
   const n = Math.pow(2, tile.z);
